@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brute Flies</title>
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --page:#e9ece4;
+  --panel:#f7f8f3;
+  --ink:#17201b;
+  --muted:#5b665e;
+  --line:#c3cabd;
+  --arena:#ffffff;
+  --grid:#c9d0c4;
+  --fly0:#d97a00;
+  --fly1:#3a52e0;
+  --eye:#c81e2b;
+  --warn:#c81e2b;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --page:#12161a;
+    --panel:#1b2127;
+    --ink:#e8ece4;
+    --muted:#96a39a;
+    --line:#313a42;
+    --arena:#232a31;
+    --grid:#3c4650;
+    --fly0:#ffab3d;
+    --fly1:#8c9dff;
+    --eye:#ff5c66;
+    --warn:#ff6b74;
+  }
+}
+:root[data-theme="dark"]{
+  --page:#12161a;
+  --panel:#1b2127;
+  --ink:#e8ece4;
+  --muted:#96a39a;
+  --line:#313a42;
+  --arena:#232a31;
+  --grid:#3c4650;
+  --fly0:#ffab3d;
+  --fly1:#8c9dff;
+  --eye:#ff5c66;
+  --warn:#ff6b74;
+}
+*,*::before,*::after{box-sizing:inherit;}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+body{
+  margin:0;
+  background:var(--page);
+  color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  line-height:1.45;
+}
+main{max-width:900px;margin:0 auto;padding:18px 14px 36px;}
+h1{
+  font-family:"Bungee","Impact",system-ui,sans-serif;
+  font-weight:400;
+  font-size:clamp(2rem,9vw,3.4rem);
+  line-height:1;
+  margin:0 0 4px;
+}
+.sub{margin:0 0 14px;color:var(--muted);}
+h2{font-family:"Bungee","Impact",system-ui,sans-serif;font-weight:400;font-size:1.15rem;margin:0 0 6px;}
+.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;}
+
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-bottom:12px;}
+.bar label{display:flex;flex-direction:column;gap:3px;font-size:.78rem;color:var(--muted);}
+select,button{
+  font:inherit;
+  color:var(--ink);
+  background:var(--panel);
+  border:2px solid var(--ink);
+  border-radius:6px;
+  padding:9px 12px;
+}
+button{font-weight:600;cursor:pointer;}
+button.go{background:var(--ink);color:var(--page);}
+button:disabled{opacity:.45;cursor:default;}
+button:focus-visible,select:focus-visible{outline:3px solid var(--fly1);outline-offset:2px;}
+
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.card{
+  background:var(--panel);
+  border:2px solid var(--line);
+  border-top-width:6px;
+  border-radius:8px;
+  padding:9px 10px;
+  min-width:0;
+}
+.card.f0{border-top-color:var(--fly0);}
+.card.f1{border-top-color:var(--fly1);}
+.card .top{display:flex;justify-content:space-between;gap:8px;align-items:baseline;}
+.card .who{font-size:.78rem;color:var(--muted);}
+.pips{letter-spacing:.2em;}
+.hp{height:10px;border:2px solid var(--ink);border-radius:5px;margin:6px 0;overflow:hidden;background:var(--arena);}
+.hp i{display:block;height:100%;}
+.f0 .hp i{background:var(--fly0);}
+.f1 .hp i{background:var(--fly1);}
+.traits{display:grid;grid-template-columns:repeat(3,1fr);gap:1px 8px;font-size:.78rem;}
+.traits span{display:flex;justify-content:space-between;}
+.traits b{font-variant-numeric:tabular-nums;}
+
+.stage{position:relative;background:var(--panel);border:2px solid var(--line);border-radius:8px;overflow:hidden;}
+#view{display:block;width:100%;aspect-ratio:4/3;touch-action:none;}
+#clock{position:absolute;top:8px;left:0;right:0;text-align:center;font-size:1.1rem;font-weight:600;pointer-events:none;}
+#overlay{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  padding:12px;
+  background:var(--page);
+  background:color-mix(in srgb,var(--page) 82%,transparent);
+}
+#overlay[hidden]{display:none;}
+.report{
+  background:var(--panel);
+  border:2px solid var(--ink);
+  border-radius:8px;
+  padding:14px;
+  max-width:560px;
+  width:100%;
+  max-height:100%;
+  overflow-y:auto;
+}
+.report .cols{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:8px 0 12px;}
+@media (max-width:480px){.report .cols{grid-template-columns:1fr;}}
+.report ul{margin:4px 0 0;padding-left:18px;font-size:.9rem;}
+.report .n0{color:var(--fly0);}
+.report .n1{color:var(--fly1);}
+.report .acts{display:flex;gap:8px;flex-wrap:wrap;}
+
+#trace{display:block;width:100%;height:120px;margin-top:10px;background:var(--panel);border:2px solid var(--line);border-radius:8px;}
+.cap{font-size:.78rem;color:var(--muted);margin:4px 2px 12px;}
+
+.pads{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+.pad{display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(3,44px);gap:6px;touch-action:none;user-select:none;}
+.pad[hidden]{display:none;}
+.pad button{padding:0;font-size:.8rem;touch-action:none;}
+.pad .lunge{grid-column:1/4;}
+.pad.p0 button{border-color:var(--fly0);}
+.pad.p1 button{border-color:var(--fly1);}
+.pad button.held{background:var(--ink);color:var(--page);}
+.padwrap{display:flex;flex-direction:column;gap:4px;font-size:.78rem;color:var(--muted);}
+.padwrap[hidden]{display:none;}
+details{background:var(--panel);border:2px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:10px;}
+summary{cursor:pointer;font-weight:600;}
+details p{margin:8px 0 0;font-size:.95rem;}
+</style>
+</head>
+<body>
+<main>
+  <h1>Brute Flies</h1>
+  <p class="sub">A fly decides when to turn. You only get to argue with it.</p>
+
+  <div class="bar">
+    <label>Pilots
+      <select id="mode">
+        <option value="pva" selected>Player vs AI</option>
+        <option value="pvp">Player vs player</option>
+        <option value="ava">AI vs AI</option>
+      </select>
+    </label>
+    <button type="button" class="go" id="start">Start match</button>
+    <button type="button" id="hatch">Hatch new flies</button>
+  </div>
+
+  <div class="cards">
+    <section class="card f0" id="card0"></section>
+    <section class="card f1" id="card1"></section>
+  </div>
+
+  <div class="stage">
+    <canvas id="view" aria-label="Three-dimensional view of the flight arena"></canvas>
+    <div id="clock" class="mono"></div>
+    <div id="overlay" hidden></div>
+  </div>
+
+  <canvas id="trace" aria-label="Yaw torque trace for both flies"></canvas>
+  <p class="cap">Yaw torque. Every spike is a turn the fly started on its own; nobody pressed anything.</p>
+
+  <div class="pads">
+    <div class="padwrap" id="wrap0">
+      <span>Player 1: A D turn, W S climb and dive, Space lunge</span>
+      <div class="pad p0" data-p="0">
+        <button type="button" data-k="left" aria-label="Player 1 turn left">Left</button>
+        <button type="button" data-k="up" aria-label="Player 1 climb">Up</button>
+        <button type="button" data-k="right" aria-label="Player 1 turn right">Right</button>
+        <span></span>
+        <button type="button" data-k="down" aria-label="Player 1 dive">Down</button>
+        <span></span>
+        <button type="button" class="lunge" data-k="lunge" aria-label="Player 1 lunge">Lunge</button>
+      </div>
+    </div>
+    <div class="padwrap" id="wrap1" hidden>
+      <span>Player 2: arrow keys turn, climb and dive, Enter lunge</span>
+      <div class="pad p1" data-p="1">
+        <button type="button" data-k="left" aria-label="Player 2 turn left">Left</button>
+        <button type="button" data-k="up" aria-label="Player 2 climb">Up</button>
+        <button type="button" data-k="right" aria-label="Player 2 turn right">Right</button>
+        <span></span>
+        <button type="button" data-k="down" aria-label="Player 2 dive">Down</button>
+        <span></span>
+        <button type="button" class="lunge" data-k="lunge" aria-label="Player 2 lunge">Lunge</button>
+      </div>
+    </div>
+  </div>
+
+  <details>
+    <summary>How to play</summary>
+    <p>Two flies share a round, featureless arena and fly in all three dimensions. Steer with turn, climb and dive, and lunge to ram the other fly. A lunge that connects does damage and knocks the victim back; being knocked into the wall hurts more. Knock the other fly out, or have more health when the 45 seconds run out. First to three rounds takes the match.</p>
+    <p>Your steering is only a bias. Each fly keeps making sharp turns of its own, in bursts and long quiet glides, and you cannot switch that off. A fly in the middle of one of its own turns is hard to read, so hits on it do half damage.</p>
+    <p>After every round each fly molts twice, and you choose neither. The habit molt follows what the fly did on its own that round: many turns grow Agility, a long glide grows Speed, wide turns grow Whim. The leap molt picks any trait and a heavy-tailed size: usually +1, now and then +6.</p>
+    <p>Speed is cruising pace. Agility is how fast you can steer. Brawn is ram damage. Shell is health. Nerve shortens the wait between lunges. Whim widens the fly's own turns.</p>
+  </details>
+  <details>
+    <summary>The science behind it</summary>
+    <p>The game is based on Maye, Hsieh, Sugihara and Brembs, "Order in Spontaneous Behavior", PLoS ONE 2(5): e443 (2007). They tethered fruit flies in a uniformly white arena with nothing to react to, and recorded the turning force each fly produced. The flies kept making turning manoeuvres anyway.</p>
+    <p>The gaps between those turns were not what a random process such as coin-flipping would give, and they were not regular either. They had a heavy tail, with many short gaps and a few very long ones, in the manner of a Lévy flight, and carried the mathematical signature of a nonlinear system. The authors argue that brains contain a mechanism that initiates behaviour on its own account, somewhere between chance and necessity.</p>
+    <p>In this game each fly carries a toy version of such an initiator: a noisy chaotic map sets the gap to the next turn, its direction and its size. It is an illustration of the idea, not the model from the paper.</p>
+  </details>
+</main>
+
+<script>
+// ---------- Simulation ----------
+const R = 6, H = 5, ROUND_TIME = 45, WINS = 3;
+const TRAITS = ["Speed", "Agility", "Brawn", "Shell", "Nerve", "Whim"];
+const NAMES = ["Haltere", "Tarsus", "Arista", "Scutum", "Ommatid", "Proboscis", "Femur", "Labrum", "Pedicel", "Tergite"];
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const wrap = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
+
+// The initiator: two weakly noisy chaotic maps. Neither a schedule nor dice.
+function stepInitiator(f) {
+  f.ix = clamp(3.99 * f.ix * (1 - f.ix) + (Math.random() - 0.5) * 2e-3, 1e-4, 1 - 1e-4);
+  f.iy = clamp(3.97 * f.iy * (1 - f.iy) + 0.02 * (f.ix - 0.5) + (Math.random() - 0.5) * 2e-3, 1e-4, 1 - 1e-4);
+}
+// Heavy-tailed gap to the next spontaneous turn, in seconds.
+const nextGap = f => Math.min(7, 0.22 * Math.pow(f.ix, -0.7));
+
+// A leap: any trait, heavy-tailed size. Usually 1, occasionally 6.
+function leap(f) {
+  stepInitiator(f);
+  const trait = TRAITS[Math.min(5, Math.floor(f.ix * 6))];
+  const size = clamp(Math.floor(Math.pow(f.iy, -0.4)), 1, 6);
+  f.t[trait] += size;
+  return { trait, size };
+}
+
+function newFly(i, name) {
+  const f = { i, name, t: {}, wins: 0, ix: 0.1 + Math.random() * 0.8, iy: 0.1 + Math.random() * 0.8, trace: [] };
+  for (const k of TRAITS) f.t[k] = 2;
+  for (let n = 0; n < 3; n++) leap(f);
+  resetFly(f);
+  return f;
+}
+const maxHp = f => 60 + 12 * f.t.Shell;
+
+function resetFly(f) {
+  f.x = f.i ? 3.5 : -3.5; f.y = H / 2; f.z = 0;
+  f.yaw = f.i ? Math.PI : 0;
+  f.hp = maxHp(f);
+  f.kx = f.ky = f.kz = 0;
+  f.sacc = 0; f.vyKick = 0;
+  f.cool = 0; f.lungeT = 0; f.evade = 0; f.immune = 0; f.flash = 0;
+  f.sinceSpike = 0;
+  stepInitiator(f);
+  f.gapT = nextGap(f);
+  f.stats = { spikes: 0, longest: 0, ampSum: 0, lunges: 0, hits: 0, taken: 0, slams: 0, time: 0 };
+  f.trail = [];
+}
+
+function hurt(f, n) { f.hp = Math.max(0, f.hp - n); f.stats.taken += n; f.flash = 0.25; }
+
+function stepFly(f, inp, dt, now) {
+  const t = f.t, st = f.stats;
+  st.time += dt;
+  // The fly's own turns.
+  f.gapT -= dt; f.sinceSpike += dt;
+  if (f.gapT <= 0) {
+    stepInitiator(f);
+    const dir = f.iy > 0.5 ? 1 : -1;
+    const mag = (0.3 + 0.09 * t.Whim) * (0.6 + 0.8 * f.iy);
+    f.sacc += dir * mag;
+    f.vyKick = (f.ix - 0.5) * 1.4;
+    f.evade = 0.3;
+    st.spikes++; st.ampSum += 0.6 + 0.8 * f.iy;
+    st.longest = Math.max(st.longest, f.sinceSpike);
+    f.sinceSpike = 0;
+    f.gapT = nextGap(f);
+    f.trace.push({ t: now, a: dir * (0.6 + 0.8 * f.iy) });
+    if (f.trace.length > 200) f.trace.shift();
+  }
+  // Steering: the pilot's bias plus whatever the fly is doing.
+  const s = clamp(f.sacc, -12 * dt, 12 * dt);
+  f.sacc -= s;
+  f.yaw = wrap(f.yaw + inp.turn * (1.5 + 0.2 * t.Agility) * dt + s);
+  // Lunge.
+  f.cool -= dt;
+  if (inp.lunge && f.cool <= 0 && f.lungeT <= 0) {
+    f.lungeT = 0.4;
+    f.cool = 2.6 / (1 + 0.15 * t.Nerve);
+    st.lunges++;
+  }
+  if (f.lungeT > 0) f.lungeT -= dt;
+  const sp = (2.2 + 0.18 * t.Speed) * (f.lungeT > 0 ? 2.4 : 1);
+  f.vyKick *= Math.exp(-3 * dt);
+  const vy = inp.climb * (1.4 + 0.12 * t.Agility) + f.vyKick;
+  f.x += (Math.cos(f.yaw) * sp + f.kx) * dt;
+  f.z += (Math.sin(f.yaw) * sp + f.kz) * dt;
+  f.y += (vy + f.ky) * dt;
+  const decay = Math.exp(-4 * dt);
+  f.kx *= decay; f.ky *= decay; f.kz *= decay;
+  // Arena wall, floor and ceiling.
+  const r = Math.hypot(f.x, f.z), lim = R - 0.35;
+  if (r > lim) {
+    const nx = f.x / r, nz = f.z / r;
+    f.x = nx * lim; f.z = nz * lim;
+    const hx = Math.cos(f.yaw), hz = Math.sin(f.yaw), dot = hx * nx + hz * nz;
+    if (dot > 0) f.yaw = Math.atan2(hz - 2 * dot * nz, hx - 2 * dot * nx);
+    if (Math.hypot(f.kx, f.kz) > 2.5) { hurt(f, 4); st.slams++; f.kx = f.kz = 0; }
+  }
+  f.y = clamp(f.y, 0.35, H - 0.35);
+  f.evade -= dt; f.immune -= dt; f.flash -= dt;
+  f.trail.push(f.x, f.y, f.z);
+  if (f.trail.length > 90) f.trail.splice(0, 3);
+}
+
+function collide(a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
+  const d = Math.hypot(dx, dy, dz) || 1e-6;
+  if (d >= 0.8) return;
+  const al = a.lungeT > 0, bl = b.lungeT > 0;
+  const ram = (att, vic) => {
+    if (vic.immune > 0) return;
+    hurt(vic, (8 + 2.5 * att.t.Brawn) * (vic.evade > 0 ? 0.5 : 1));
+    vic.immune = 0.5;
+    vic.kx = Math.cos(att.yaw) * 7; vic.kz = Math.sin(att.yaw) * 7; vic.ky = (vic.y - att.y) * 3;
+    att.lungeT = 0;
+    att.stats.hits++;
+  };
+  if (al) ram(a, b);
+  if (bl) ram(b, a);
+  const push = (0.8 - d) / 2;
+  a.x -= dx / d * push; a.y -= dy / d * push; a.z -= dz / d * push;
+  b.x += dx / d * push; b.y += dy / d * push; b.z += dz / d * push;
+}
+
+// The AI pilot gives the same three inputs a player does.
+function pilot(me, foe) {
+  const dx = foe.x - me.x, dz = foe.z - me.z, dy = foe.y - me.y;
+  const off = wrap(Math.atan2(dz, dx) - me.yaw);
+  const dist = Math.hypot(dx, dy, dz);
+  let turn = clamp(off * 2, -1, 1);
+  if (me.cool > 0.6 && dist < 1.6) turn = -turn;
+  return { turn, climb: clamp(dy * 1.5, -1, 1), lunge: dist < 2.3 && Math.abs(off) < 0.5 && Math.abs(dy) < 0.8 };
+}
+
+// Molting: two upgrades per round, both chosen by the fly.
+function molt(f) {
+  const st = f.stats, out = [];
+  const secs = Math.max(st.time, 1);
+  const scores = [
+    ["Agility", st.spikes / secs / 1.45, st.spikes + " turns in " + Math.round(secs) + " s"],
+    ["Speed", st.longest / 5.2, "a " + st.longest.toFixed(1) + " s glide"],
+    ["Whim", st.spikes ? st.ampSum / st.spikes / 1.0 : 0, "wide turns"]
+  ].sort((p, q) => q[1] - p[1]);
+  f.t[scores[0][0]] += 1;
+  out.push("Habit: " + scores[0][2] + ", so +1 " + scores[0][0]);
+  const l = leap(f);
+  out.push("Leap: +" + l.size + " " + l.trait + (l.size >= 4 ? ", a rare long one" : ""));
+  return out;
+}
+
+// ---------- Match flow ----------
+let flies = [];
+let phase = "idle";   // idle | fight | molt | over
+let roundT = 0, now = 0, roundNo = 0;
+let camAngle = 0.6;
+const keys = [{}, {}];
+
+function hatch() {
+  const a = NAMES[Math.floor(Math.random() * NAMES.length)];
+  let b = a;
+  while (b === a) b = NAMES[Math.floor(Math.random() * NAMES.length)];
+  flies = [newFly(0, a), newFly(1, b)];
+  phase = "idle"; roundNo = 0;
+}
+
+function startMatch() {
+  for (const f of flies) f.wins = 0;
+  roundNo = 0;
+  startRound();
+}
+function startRound() {
+  for (const f of flies) resetFly(f);
+  roundT = ROUND_TIME; roundNo++;
+  phase = "fight";
+}
+
+function inputFor(i, mode) {
+  const human = mode === "pvp" || (mode === "pva" && i === 0);
+  if (phase !== "fight") return { turn: 0, climb: 0, lunge: false };
+  if (!human) return pilot(flies[i], flies[1 - i]);
+  const k = keys[i];
+  return { turn: (k.right ? 1 : 0) - (k.left ? 1 : 0), climb: (k.up ? 1 : 0) - (k.down ? 1 : 0), lunge: !!k.lunge };
+}
+
+function tick(dt, mode) {
+  now += dt;
+  const inA = inputFor(0, mode), inB = inputFor(1, mode);
+  if (phase === "idle" || phase === "fight") {
+    stepFly(flies[0], inA, dt, now);
+    stepFly(flies[1], inB, dt, now);
+  }
+  if (phase !== "fight") return null;
+  collide(flies[0], flies[1]);
+  roundT -= dt;
+  const [a, b] = flies;
+  if (a.hp > 0 && b.hp > 0 && roundT > 0) return null;
+  const fa = a.hp / maxHp(a), fb = b.hp / maxHp(b);
+  const winner = fa === fb ? null : fa > fb ? a : b;
+  if (winner) winner.wins++;
+  const how = a.hp <= 0 || b.hp <= 0 ? "by knockout" : "on health";
+  const reports = flies.map(molt);
+  phase = winner && winner.wins >= WINS ? "over" : "molt";
+  return { winner, how, reports };
+}
+
+// ---------- Interface ----------
+if (typeof document !== "undefined") {
+  const $ = id => document.getElementById(id);
+  const view = $("view"), vctx = view.getContext("2d");
+  const trace = $("trace"), tctx = trace.getContext("2d");
+  const mode = () => $("mode").value;
+  let css = {}, cssAge = 99;
+  const calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let autoNext = 0;
+
+  function readCss() {
+    const cs = getComputedStyle(document.documentElement);
+    for (const k of ["ink", "muted", "arena", "grid", "fly0", "fly1", "eye", "warn", "panel", "line"]) css[k] = cs.getPropertyValue("--" + k).trim();
+  }
+  function fit(c) {
+    const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+    if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+    c.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
+    return [w, h];
+  }
+
+  // Perspective projection from an orbiting camera above the rim.
+  const D = 17, TILT = 0.42;
+  let W = 0, Hc = 0, F = 0;
+  function proj(x, y, z) {
+    const c = Math.cos(camAngle), s = Math.sin(camAngle);
+    const x1 = x * c - z * s, z1 = x * s + z * c, y1 = y - H / 2;
+    const y2 = y1 * Math.cos(TILT) + z1 * Math.sin(TILT);
+    const z2 = -y1 * Math.sin(TILT) + z1 * Math.cos(TILT);
+    const k = F / (D + z2);
+    return [W / 2 + x1 * k, Hc * 0.52 - y2 * k, k, z2];
+  }
+  function ring(r, y) {
+    vctx.beginPath();
+    for (let i = 0; i <= 48; i++) {
+      const a = i / 48 * Math.PI * 2, p = proj(Math.cos(a) * r, y, Math.sin(a) * r);
+      if (i) vctx.lineTo(p[0], p[1]); else vctx.moveTo(p[0], p[1]);
+    }
+  }
+
+  function drawFly(f) {
+    const col = css["fly" + f.i];
+    const p = proj(f.x, f.y, f.z), k = p[2];
+    const sh = proj(f.x, 0, f.z);
+    // Shadow and drop line give the height.
+    vctx.globalAlpha = 0.22; vctx.fillStyle = css.ink;
+    vctx.beginPath(); vctx.ellipse(sh[0], sh[1], 0.3 * sh[2], 0.12 * sh[2], 0, 0, 7); vctx.fill();
+    vctx.globalAlpha = 0.3; vctx.strokeStyle = css.ink; vctx.lineWidth = 1;
+    vctx.beginPath(); vctx.moveTo(p[0], p[1]); vctx.lineTo(sh[0], sh[1]); vctx.stroke();
+    // Trail.
+    vctx.strokeStyle = col; vctx.lineWidth = 1.5;
+    for (let i = 3; i < f.trail.length; i += 3) {
+      const a = proj(f.trail[i - 3], f.trail[i - 2], f.trail[i - 1]), b = proj(f.trail[i], f.trail[i + 1], f.trail[i + 2]);
+      vctx.globalAlpha = 0.5 * i / f.trail.length;
+      vctx.beginPath(); vctx.moveTo(a[0], a[1]); vctx.lineTo(b[0], b[1]); vctx.stroke();
+    }
+    vctx.globalAlpha = 1;
+    // Body along the heading.
+    const h = proj(f.x + Math.cos(f.yaw) * 0.4, f.y, f.z + Math.sin(f.yaw) * 0.4);
+    let ux = h[0] - p[0], uy = h[1] - p[1];
+    const ul = Math.hypot(ux, uy) || 1; ux /= ul; uy /= ul;
+    const size = 0.26 * k, ang = Math.atan2(uy, ux);
+    const flap = 0.5 + 0.5 * Math.sin(now * 70 + f.i);
+    vctx.fillStyle = css.ink; vctx.globalAlpha = 0.16 + 0.12 * flap;
+    for (const side of [-1, 1]) {
+      vctx.beginPath();
+      vctx.ellipse(p[0] - ux * size * 0.5 - uy * side * size * 0.9, p[1] - uy * size * 0.5 + ux * side * size * 0.9, size * 1.3, size * 0.5, ang + side * (0.9 + 0.3 * flap), 0, 7);
+      vctx.fill();
+    }
+    vctx.globalAlpha = 1;
+    if (f.lungeT > 0) {
+      vctx.strokeStyle = col; vctx.lineWidth = size * 0.9; vctx.globalAlpha = 0.35; vctx.lineCap = "round";
+      vctx.beginPath(); vctx.moveTo(p[0] - ux * size * 4, p[1] - uy * size * 4); vctx.lineTo(p[0], p[1]); vctx.stroke();
+      vctx.globalAlpha = 1;
+    }
+    vctx.fillStyle = f.flash > 0 ? css.warn : col;
+    vctx.strokeStyle = css.ink; vctx.lineWidth = 1.5;
+    vctx.beginPath(); vctx.ellipse(p[0] - ux * size * 1.1, p[1] - uy * size * 1.1, size * 1.1, size * 0.75, ang, 0, 7); vctx.fill(); vctx.stroke();
+    vctx.beginPath(); vctx.arc(p[0], p[1], size * 0.8, 0, 7); vctx.fill(); vctx.stroke();
+    vctx.fillStyle = css.eye;
+    vctx.beginPath(); vctx.arc(p[0] + ux * size * 0.9, p[1] + uy * size * 0.9, size * 0.55, 0, 7); vctx.fill(); vctx.stroke();
+    if (f.evade > 0) {
+      vctx.strokeStyle = col; vctx.lineWidth = 2; vctx.globalAlpha = f.evade / 0.3;
+      vctx.beginPath(); vctx.arc(p[0], p[1], size * 2.4, 0, 7); vctx.stroke();
+      vctx.globalAlpha = 1;
+    }
+    vctx.fillStyle = css.ink; vctx.font = "600 12px 'IBM Plex Sans',system-ui,sans-serif"; vctx.textAlign = "center";
+    vctx.fillText(f.name, p[0], p[1] - size * 2.6 - 4);
+    return p[3];
+  }
+
+  function drawView() {
+    [W, Hc] = fit(view);
+    F = Math.min(W / 15, Hc / 10.5) * D;
+    vctx.clearRect(0, 0, W, Hc);
+    // Floor.
+    ring(R, 0); vctx.fillStyle = css.arena; vctx.fill();
+    vctx.strokeStyle = css.grid; vctx.lineWidth = 1;
+    for (const r of [2, 4, R]) { ring(r, 0); vctx.stroke(); }
+    for (let i = 0; i < 12; i++) {
+      const a = i / 12 * Math.PI * 2, c = Math.cos(a) * R, s = Math.sin(a) * R;
+      const p0 = proj(0, 0, 0), p1 = proj(c, 0, s), p2 = proj(c, H, s);
+      vctx.beginPath(); vctx.moveTo(p0[0], p0[1]); vctx.lineTo(p1[0], p1[1]); vctx.lineTo(p2[0], p2[1]); vctx.stroke();
+    }
+    ring(R, H); vctx.stroke();
+    // Far fly first.
+    const order = flies.slice().sort((a, b) => proj(b.x, b.y, b.z)[3] - proj(a.x, a.y, a.z)[3]);
+    for (const f of order) drawFly(f);
+  }
+
+  function drawTrace() {
+    const [w, h] = fit(trace);
+    tctx.clearRect(0, 0, w, h);
+    const span = 20, rowH = h / 2;
+    flies.forEach((f, i) => {
+      const y0 = rowH * (i + 0.5);
+      tctx.strokeStyle = css.line; tctx.lineWidth = 1;
+      tctx.beginPath(); tctx.moveTo(0, y0); tctx.lineTo(w, y0); tctx.stroke();
+      tctx.strokeStyle = css["fly" + i]; tctx.lineWidth = 2;
+      tctx.beginPath();
+      for (const sp of f.trace) {
+        const age = now - sp.t;
+        if (age > span) continue;
+        const x = w - age / span * w;
+        tctx.moveTo(x, y0); tctx.lineTo(x, y0 - sp.a / 1.4 * rowH * 0.42);
+      }
+      tctx.stroke();
+      tctx.fillStyle = css.muted; tctx.font = "11px 'IBM Plex Mono',ui-monospace,monospace"; tctx.textAlign = "left";
+      tctx.fillText(f.name, 6, y0 - rowH * 0.3);
+    });
+  }
+
+  function drawCards() {
+    flies.forEach((f, i) => {
+      const m = mode();
+      const who = m === "ava" || (m === "pva" && i === 1) ? "AI pilot" : "Player " + (i + 1);
+      const sig = f.name + who + Math.ceil(f.hp) + f.wins + JSON.stringify(f.t);
+      if (f.sig === sig) return;
+      f.sig = sig;
+      $("card" + i).innerHTML =
+        '<div class="top"><h2>' + f.name + '</h2><span class="pips mono" aria-label="' + f.wins + ' rounds won">' + "●".repeat(f.wins) + "○".repeat(WINS - f.wins) + "</span></div>" +
+        '<div class="who">' + who + '</div><div class="hp" role="img" aria-label="Health ' + Math.ceil(f.hp) + " of " + maxHp(f) + '"><i style="width:' + (100 * f.hp / maxHp(f)) + '%"></i></div>' +
+        '<div class="traits mono">' + TRAITS.map(k => "<span>" + k + " <b>" + f.t[k] + "</b></span>").join("") + "</div>";
+    });
+  }
+
+  function showReport(res) {
+    const head = res.winner ? res.winner.name + " takes round " + roundNo + " " + res.how : "Round " + roundNo + " is a draw";
+    const final = phase === "over";
+    $("overlay").innerHTML = '<div class="report"><h2>' + (final ? res.winner.name + " wins the match" : head) + "</h2>" +
+      "<p>" + (final ? head + ". " : "") + "Both flies molt. Nobody chose these.</p>" +
+      '<div class="cols">' + flies.map((f, i) => '<div><b class="n' + i + '">' + f.name + "</b><ul>" + res.reports[i].map(r => "<li>" + r + "</li>").join("") + "</ul></div>").join("") + "</div>" +
+      '<div class="acts">' + (final ? '<button type="button" class="go" id="again">Rematch with these flies</button><button type="button" id="fresh">Hatch new flies</button>'
+        : '<button type="button" class="go" id="next">Next round</button>') + "</div></div>";
+    $("overlay").hidden = false;
+    autoNext = !final && mode() === "ava" ? 5 : 0;
+    const b = $("next") || $("again");
+    if (b && mode() !== "ava") b.focus();
+  }
+  function closeReport() { $("overlay").hidden = true; autoNext = 0; }
+
+  function syncUi() {
+    const m = mode();
+    $("wrap0").hidden = m === "ava";
+    $("wrap1").hidden = m !== "pvp";
+    $("start").textContent = phase === "idle" ? "Start match" : "Restart match";
+    $("clock").textContent = phase === "fight" ? "Round " + roundNo + "   " + Math.ceil(roundT) + " s" : phase === "idle" ? "Free flight" : "";
+  }
+
+  let lastT = 0;
+  function frame(ts) {
+    const dt = Math.min(0.05, (ts - lastT) / 1000 || 0.016);
+    lastT = ts;
+    if (++cssAge > 60) { readCss(); cssAge = 0; }
+    if (!calm) camAngle += dt * 0.07;
+    const res = tick(dt, mode());
+    if (res) showReport(res);
+    if (autoNext > 0) { autoNext -= dt; if (autoNext <= 0) { closeReport(); startRound(); } }
+    drawView(); drawTrace(); drawCards(); syncUi();
+    requestAnimationFrame(frame);
+  }
+
+  // Controls.
+  const KEYMAP = {
+    KeyA: [0, "left"], KeyD: [0, "right"], KeyW: [0, "up"], KeyS: [0, "down"], Space: [0, "lunge"],
+    ArrowLeft: [1, "left"], ArrowRight: [1, "right"], ArrowUp: [1, "up"], ArrowDown: [1, "down"], Enter: [1, "lunge"]
+  };
+  const onKey = down => e => {
+    const m = KEYMAP[e.code];
+    if (!m || phase !== "fight") return;
+    if (e.target.closest && e.target.closest("select")) return;
+    // With one human, the arrow keys fly player 1 too.
+    const p = mode() === "pva" ? 0 : m[0];
+    keys[p][m[1]] = down;
+    e.preventDefault();
+  };
+  window.addEventListener("keydown", onKey(true));
+  window.addEventListener("keyup", onKey(false));
+  for (const pad of document.querySelectorAll(".pad")) {
+    const p = +pad.dataset.p;
+    for (const b of pad.querySelectorAll("button")) {
+      const set = v => e => { keys[p][b.dataset.k] = v; b.classList.toggle("held", v); e.preventDefault(); };
+      b.addEventListener("pointerdown", set(true));
+      for (const ev of ["pointerup", "pointerleave", "pointercancel"]) b.addEventListener(ev, set(false));
+      b.addEventListener("contextmenu", e => e.preventDefault());
+    }
+  }
+  $("start").onclick = () => { closeReport(); startMatch(); $("start").blur(); };
+  $("hatch").onclick = () => { closeReport(); hatch(); };
+  $("mode").onchange = () => { keys[0] = {}; keys[1] = {}; for (const f of flies) f.sig = ""; };
+  $("overlay").addEventListener("click", e => {
+    if (e.target.id === "next") { closeReport(); startRound(); }
+    else if (e.target.id === "again") { closeReport(); startMatch(); }
+    else if (e.target.id === "fresh") { closeReport(); hatch(); }
+  });
+
+  hatch();
+  readCss();
+  requestAnimationFrame(frame);
+}
+</script>
+</body>
+</html>
